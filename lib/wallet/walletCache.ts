@@ -15,5 +15,3 @@ export class WalletCache {
         this.cache.set(transaction.id('hex'), transaction.toHex());
     }
 }
-
-export const walletCache = new WalletCache();

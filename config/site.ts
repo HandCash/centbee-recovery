@@ -5,8 +5,6 @@ export const siteConfig = {
   description: "Recovery tool for Centbee wallets",
   mainNav: [],
   links: {
-    twitter: "https://twitter.com/shadcn",
-    github: "https://github.com/shadcn/ui",
-    docs: "https://ui.shadcn.com",
+    github: "https://github.com/HandCash/centbee-recovery",
   },
 }

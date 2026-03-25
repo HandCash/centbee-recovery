@@ -1,21 +1,17 @@
-import { BroadcastFailure, BroadcastResponse, Transaction, Broadcaster } from '@bsv/sdk'
+import { BroadcastFailure, BroadcastResponse, Transaction } from '@bsv/sdk'
 import { Utxo } from './types/utxo'
+import { IndexerService } from './types/indexerService'
 
 /**
- * Represents an Bitails transaction broadcaster.
+ * Bitails implementation of IndexerService and Broadcaster.
  */
-export default class Bitails implements Broadcaster {
-    network: 'main' | 'test'
+export default class Bitails implements IndexerService {
     URL: string
+    apiKey: string
 
-    /**
-     * Constructs an instance of the Bitails broadcaster.
-     *
-     * @param {string} network - which network to use (testnet or mainnet)
-     */
-    constructor(network: 'main' | 'test') {
-        this.network = network
+    constructor(apiKey: string = process.env.NEXT_PUBLIC_BITAILS_API_KEY ?? '') {
         this.URL = `https://api.bitails.io`
+        this.apiKey = apiKey
     }
 
     /**
@@ -72,38 +68,48 @@ export default class Bitails implements Broadcaster {
      * @returns {Promise<string>} A promise that resolves to the raw transaction.
      */
     async fetchRawTx(txid: string): Promise<string> {
+        const headers: Record<string, string> = {}
+        if (this.apiKey) headers['apikey'] = this.apiKey
+
         const response = await window.fetch(`${this.URL}/download/tx/${txid}/hex`, {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/gzip'
-          }
+          headers,
         });
         if (!response.ok) {
-          throw new Error(`Failed to fetch raw transaction: ${response.statusText}`);
+          throw new Error(`Bitails failed to fetch raw transaction: ${response.statusText}`);
         }
-        const data = await response.arrayBuffer()
-        const rawTx = new TextDecoder().decode(data)
-        return rawTx;
+        return (await response.text()).trim();
       }
 
       /**
-     * Fetches utxos for a list of addresses from Bitails.
+     * Fetches UTXOs for a batch of addresses in a single request using the Bitails
+     * multi-address unspent endpoint (`POST /address/unspent/multi`).
+     *
+     * The API returns an array of objects, one per address, each containing an
+     * `unspent` array of UTXOs for that address. Addresses with no UTXOs are
+     * included in the response with an empty `unspent` array. The response is
+     * flattened so the caller receives a single list of UTXOs across all addresses.
+     *
      * https://docs.bitails.io/#get-unspent-of-address
      *
-     * @param {string[]} addresses - The list of addresses.
-     * @returns {Promise<Utxo[]>} A promise that resolves to the list of utxos.
+     * @param {string[]} addresses - BSV addresses to query (sent as `{ addresses }` in POST body)
+     * @returns {Promise<Utxo[]>} Flat list of UTXOs across all queried addresses
      */
       async fetchUtxosForAddress(addresses: string[]): Promise<Utxo[]> {
         const response = await window.fetch(`${this.URL}/address/unspent/multi`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ addresses })
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch utxos for addresses ${addresses}: ${response.statusText}`);
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ addresses }),
+        })
+
+        if (response.status === 429) {
+          throw new Error('Rate limited by Bitails')
         }
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch utxos for addresses: ${response.statusText}`)
+        }
+
         const data = await response.json()
         return data.map((item: any) => item.unspent.map((utxo: any): Utxo => ({
           address: item.address,
