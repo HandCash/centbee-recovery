@@ -118,7 +118,7 @@ export default function StartPage() {
       setIsLoading(true)
       const mnemonicError = !WalletClient.validateMnemonic(mnemonic.trim(), language)
       setMnemonicError(mnemonicError)
-      const pinError = pin.length !== 4 || !/^\d+$/.test(pin)
+      const pinError = false
       setPinError(pinError)
 
       if (pinError || mnemonicError) {
