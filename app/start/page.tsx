@@ -317,7 +317,6 @@ export default function StartPage() {
                 type="password"
                 autoComplete="off"
                 required
-                maxLength={4}
                 onChange={(e) => setPin(e.target.value)}
                 className={cn("font-mono tracking-widest", pinError ? "border-destructive focus-visible:ring-destructive" : "")}
               />
